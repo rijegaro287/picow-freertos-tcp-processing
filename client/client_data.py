@@ -28,16 +28,21 @@ print(f'Sample rate: {sample_rate}')
 ip_addr = "192.168.100.70"
 port = 4242
 
+total_retries = 0
+
 start = time.time()
 for i in range(0, n_samples, buffer_size // sample_width):
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.connect((ip_addr, port))
+    print(f'-- Total retries: {total_retries}')
 
     frames = wave_file.readframes(buffer_size // sample_width)
     print(f'-- Frames:\n{frames.hex()}')
 
+    frame_retries = 0
     response = ''
     while response != '0':
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket.connect((ip_addr, port))
+
         client_socket.send(frames)
         client_socket.settimeout(3)
         
@@ -47,9 +52,13 @@ for i in range(0, n_samples, buffer_size // sample_width):
             print('-- Connection closed by server')
             break
 
-    client_socket.settimeout(None)
+        if response == '1':
+            frame_retries += 1
 
-    client_socket.close()
+        client_socket.settimeout(None)
+        client_socket.close()
+
+    total_retries += frame_retries
 
 end = time.time()
 
