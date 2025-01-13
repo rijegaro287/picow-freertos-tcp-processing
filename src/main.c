@@ -4,7 +4,6 @@
 #include "tcp_server.h"
 #include "processing.h"
 
-
 #define NUMBER_OF_HANDLES 5
 
 #define PROCESSING_QUEUE_SIZE 10
@@ -29,16 +28,6 @@ typedef enum _handle_index {
 	NOISE_HANDLE
 } handle_index_t;
 
-
-static wifi_credentials_t wifi_credentials = {
-	.ssid = "Familia Gatgens",
-	.password = "adita123"
-};
-
-static tcp_client_config_t tcp_client_config = {
-	.server_ip = "192.168.100.66",
-	.port = 4242
-};
 
 static TaskHandle_t task_handles[NUMBER_OF_HANDLES];
 
@@ -95,7 +84,8 @@ void tcp_client_task(void *pvParameters) {
 		int32_t client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 		if(client_socket < 0) {
 			printf("Failed to create client socket\n");
-			return;
+			vTaskDelay(pdMS_TO_TICKS(500));
+			continue;
 		}
 
 		int32_t status = -1;
@@ -125,21 +115,26 @@ void noise_task(void *pvParameters) {
 }
 
 int main() {
-	stdio_init_all();
+	wifi_credentials_t wifi_credentials = {
+		.ssid = "Familia Gatgens",
+		.password = "adita123"
+	};
 
-	// tcp_server_config_t tcp_server_config = {
-	// 	.ssid = "Familia Gatgens",
-	// 	.password = "adita123",
-	// 	.port = 4242,
-	// 	.processing_queue = {
-	// 		.buffer_size = BUFFER_SIZE,
-	// 		.handle = xQueueCreate(PROCESSING_QUEUE_SIZE, BUFFER_SIZE)
-	// 	}
-	// };
+	tcp_server_config_t tcp_server_config = {
+		.port = 4242,
+		.processing_queue = xQueueCreate(PROCESSING_QUEUE_SIZE, BUFFER_SIZE)
+	};
+
+	tcp_client_config_t tcp_client_config = {
+		.server_ip = "192.168.100.66",
+		.port = 4242
+	};
 
 	for(uint32_t i = 0; i < 5; i++) {
 		task_handles[i] = NULL;
 	}
+
+	stdio_init_all();
 
 	xTaskCreate(wifi_connect_task,
 						  "connection to wifi",
@@ -148,12 +143,12 @@ int main() {
 							10,
 							&(task_handles[CONNECTION_HANDLE]));
 
-	// xTaskCreate(tcp_server_task, 
-	// 					  "tcp server",
-	// 						configMINIMAL_STACK_SIZE,
-	// 						&tcp_server_config,
-	// 						5,
-	// 						&(task_handles[SERVER_HANDLE]));
+	xTaskCreate(tcp_server_task, 
+						  "tcp server",
+							configMINIMAL_STACK_SIZE,
+							&tcp_server_config,
+							5,
+							&(task_handles[SERVER_HANDLE]));
 
 	xTaskCreate(tcp_client_task,
 						  "tcp client",
@@ -162,19 +157,19 @@ int main() {
 							5,
 							&(task_handles[CLIENT_HANDLE]));
 
-	// xTaskCreate(processing_task,
-	// 					  "processing",
-	// 						configMINIMAL_STACK_SIZE,
-	// 						&(tcp_server_config.processing_queue),
-	// 						5,
-	// 						&(task_handles[PROCESSING_HANDLE]));
+	xTaskCreate(processing_task,
+						  "processing",
+							configMINIMAL_STACK_SIZE,
+							&(tcp_server_config.processing_queue),
+							5,
+							&(task_handles[PROCESSING_HANDLE]));
 
-	// xTaskCreate(noise_task,
-	// 					  "noise",
-	// 						configMINIMAL_STACK_SIZE,
-	// 						NULL,
-	// 						1,
-	// 						&(task_handles[NOISE_HANDLE]));
+	xTaskCreate(noise_task,
+						  "noise",
+							configMINIMAL_STACK_SIZE,
+							NULL,
+							1,
+							&(task_handles[NOISE_HANDLE]));
 
 	vTaskStartScheduler();
 

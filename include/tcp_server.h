@@ -13,16 +13,9 @@
 #include <lwip/sockets.h>
 
 
-typedef struct _processing_queue {
-  QueueHandle_t handle;
-  uint32_t buffer_size;
-} processing_queue_t;
-
 typedef struct _tcp_server_config {
-  uint8_t *ssid;
-  uint8_t *password;
-  uint16_t port;
-  processing_queue_t processing_queue;
+  const uint16_t port;
+  xQueueHandle processing_queue;
 } tcp_server_config_t;
 
 
