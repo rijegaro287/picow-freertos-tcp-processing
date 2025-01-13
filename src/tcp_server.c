@@ -12,12 +12,12 @@ static err_t tcp_server_init(tcp_server_config_t *config) {
     return PICO_ERROR_GENERIC;
   }
 
-  if(cyw43_arch_init() != PICO_OK) {
-    printf("Failed to initialize CYW43_ARCH\n");
-    return PICO_ERROR_GENERIC;
-  };
+  // if(cyw43_arch_init() != PICO_OK) {
+  //   printf("Failed to initialize CYW43_ARCH\n");
+  //   return PICO_ERROR_GENERIC;
+  // };
 
-  cyw43_arch_enable_sta_mode();
+  // cyw43_arch_enable_sta_mode();
   return PICO_OK;
 }
 
@@ -48,12 +48,12 @@ static void tcp_server_listen(tcp_server_config_t *config) {
 	struct sockaddr_in server_addr = {
 		.sin_len = sizeof(struct sockaddr_in),
 		.sin_family = AF_INET,
-		.sin_port = htons(config->port),
-		.sin_addr = 0
+		.sin_addr = 0,
+		.sin_port = htons(config->port)
 	};
 
 	if(server_socket < 0) {
-		printf("Failed to create socket\n");
+		printf("Failed to create server socket\n");
     return;
 	}
 
@@ -92,7 +92,6 @@ static void tcp_server_listen(tcp_server_config_t *config) {
         else {
           send(conn_sock, "0", 1, 0);
         }
-
 			}
 
 			close(conn_sock);

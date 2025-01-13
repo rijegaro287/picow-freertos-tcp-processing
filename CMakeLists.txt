@@ -30,6 +30,7 @@ pico_sdk_init()
 
 set(SOURCES src/main.c
             src/tcp_server.c
+            # src/tcp_client.c
             src/processing.c
 )
 
