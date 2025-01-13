@@ -38,12 +38,12 @@ static void tcp_server_listen(tcp_server_config_t *config) {
 
 		int32_t conn_sock = accept(server_socket, (struct sockaddr *)&remote_addr, &len);
 		if (conn_sock >= 0) {
-			uint32_t recv_max_size = uxQueueGetQueueItemSize(config->processing_queue);
-			uint8_t recv_buffer[recv_max_size];
+			uint32_t buffer_size = uxQueueGetQueueItemSize(config->input_queue);
+			uint8_t recv_buffer[buffer_size];
 
-			if(recv(conn_sock, recv_buffer, recv_max_size, 0) > 0) {
-				xQueueSend(config->processing_queue, recv_buffer, 0);
-        if (uxQueueSpacesAvailable(config->processing_queue) == 0) {
+			if(recv(conn_sock, recv_buffer, buffer_size, 0) > 0) {
+				xQueueSend(config->input_queue, recv_buffer, 0);
+        if (uxQueueSpacesAvailable(config->input_queue) == 0) {
           printf("Processing queue is full\n");
           send(conn_sock, "1", 1, 0);
         }
@@ -62,15 +62,12 @@ void tcp_server_task(void *pvParameters) {
 
 	tcp_server_config_t *config = (tcp_server_config_t *)pvParameters;
   while (true) {
-		if(config->processing_queue == NULL) {
-			printf("Processing queue not set\n");
-			continue;
+		if(config->input_queue != NULL) {
+    	tcp_server_listen(config);
 		}
-
-    tcp_server_listen(config);
-    
+		else {
+			printf("Input queue is not set\n");
+		}
 		vTaskDelay(pdMS_TO_TICKS(500));
   }
-  
-	vTaskDelete(NULL);
 }

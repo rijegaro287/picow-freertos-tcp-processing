@@ -29,8 +29,8 @@ project(picow-audio-equalizer C CXX ASM)
 pico_sdk_init()
 
 set(SOURCES src/main.c
-            src/tcp_server.c
-            # src/tcp_client.c
+            src/tcp/tcp_server.c
+            src/tcp/tcp_client.c
             src/processing.c
 )
 
@@ -42,6 +42,7 @@ pico_enable_stdio_usb(picow-audio-equalizer 0)
 target_include_directories(picow-audio-equalizer PRIVATE
                            ${CMAKE_CURRENT_LIST_DIR}
                            include
+                           include/tcp
 )
 
 target_link_libraries(picow-audio-equalizer

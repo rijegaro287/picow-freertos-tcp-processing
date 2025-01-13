@@ -8,4 +8,9 @@
 #include "tcp_server.h"
 
 
+typedef struct _queue_handles_t {
+  xQueueHandle input_queue;
+  xQueueHandle output_queue;
+} queue_handles_t;
+
 extern void processing_task(void *pvParameters);

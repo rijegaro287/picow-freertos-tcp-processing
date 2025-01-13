@@ -20,14 +20,9 @@ while True:
 
     data = client_socket.recv(512)
     if not data:
-        break
-    
-    data = data.decode()
-    if data == "exit":
-        client_socket.close()
-        break
+        continue
 
-    print("Received:", data)
+    print("Received:", data.hex())
     print("="*50)
 
 server_socket.close()
