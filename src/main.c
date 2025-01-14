@@ -9,8 +9,8 @@
 
 #define NUMBER_OF_HANDLES 6
 
-#define QUEUE_LENGTH 5
-#define BUFFER_SIZE 256
+#define QUEUE_LENGTH 3
+#define BUFFER_SIZE 1024
 
 typedef struct _wifi_credentials {
 	const char *ssid;
@@ -23,9 +23,10 @@ typedef enum _handle_index {
 	CLIENT_HANDLE,
 	PROCESSING_HANDLE,
 	QUEUE_WATCHER_HANDLE,
-	HEAP_WATCHER_HANDLE
+	MEMORY_WATCHER_HANDLE
 } handle_index_t;
 
+static bool watch_memory = false;
 
 static TaskHandle_t task_handles[NUMBER_OF_HANDLES];
 
@@ -67,7 +68,7 @@ static void wifi_connect_task(void *pvParameters) {
 	vTaskDelete(NULL);
 }
 
-void queue_watcher_task(void *pvParameters) {
+static void queue_watcher_task(void *pvParameters) {
 	queue_handles_t *handles = (queue_handles_t *)pvParameters;
 	while(true) {
 		if(uxQueueSpacesAvailable(handles->input_queue) > 0) {
@@ -78,17 +79,30 @@ void queue_watcher_task(void *pvParameters) {
 			xSemaphoreGive(handles->output_semaphore);
 		}
 
-		vTaskDelay(pdMS_TO_TICKS(20));
+		vTaskDelay(pdMS_TO_TICKS(1));
 	}
 }
 
-void heap_watcher_task(void *pvParameters) {
+static void memory_watcher_task(void *pvParameters) {
+	if(!watch_memory) {
+		vTaskDelete(NULL);
+	}
+
+	queue_handles_t *handles = (queue_handles_t *)pvParameters;
 	while(true) {
 		printf("==============================================\n");
+		printf("Input Queue: %d\n", uxQueueSpacesAvailable(handles->input_queue));
+		printf("Output Queue: %d\n", uxQueueSpacesAvailable(handles->output_queue));
+		printf("----------------------------------------------\n");
 		printf("Free Heap: %d\n", xPortGetFreeHeapSize());
 		printf("Smallest Free Heap: %d\n", xPortGetMinimumEverFreeHeapSize());
+		for(uint32_t i = 0; i < NUMBER_OF_HANDLES; i++) {
+			if(task_handles[i] != NULL) {
+				printf("Stack Max Usage %d: %d\n", i, uxTaskGetStackHighWaterMark(task_handles[i]));
+			}
+		}
 		printf("==============================================\n");
-		vTaskDelay(pdMS_TO_TICKS(500));
+		vTaskDelay(pdMS_TO_TICKS(100));
 	}
 }
 
@@ -120,6 +134,37 @@ int main() {
 
 	stdio_init_all();
 
+	/* Core 0 */
+	xTaskCreate(tcp_server_task, 
+						  "tcp server",
+							(configMINIMAL_STACK_SIZE << 2),
+							&tcp_server_config,
+							2,
+							&(task_handles[SERVER_HANDLE]));
+
+	xTaskCreate(tcp_client_task,
+						  "tcp client",
+							(configMINIMAL_STACK_SIZE << 2),
+							&tcp_client_config,
+							2,
+							&(task_handles[CLIENT_HANDLE]));
+	
+	/* Core 1 */
+	xTaskCreate(queue_watcher_task,
+						  "queue watcher",
+							(configMINIMAL_STACK_SIZE >> 1),
+							&processing_handles,
+							5,
+							&(task_handles[QUEUE_WATCHER_HANDLE]));
+
+	xTaskCreate(processing_task,
+						  "processing",
+							(configMINIMAL_STACK_SIZE << 2),
+							&processing_handles,
+							1,
+							&(task_handles[PROCESSING_HANDLE]));
+
+	/* No Affinity */
 	xTaskCreate(wifi_connect_task,
 						  "connection to wifi",
 							configMINIMAL_STACK_SIZE,
@@ -127,40 +172,19 @@ int main() {
 							5,
 							&(task_handles[CONNECTION_HANDLE]));
 
-	xTaskCreate(tcp_server_task, 
-						  "tcp server",
-							configMINIMAL_STACK_SIZE,
-							&tcp_server_config,
-							2,
-							&(task_handles[SERVER_HANDLE]));
-
-	xTaskCreate(tcp_client_task,
-						  "tcp client",
-							configMINIMAL_STACK_SIZE,
-							&tcp_client_config,
-							3,
-							&(task_handles[CLIENT_HANDLE]));
-
-	xTaskCreate(processing_task,
-						  "processing",
-							configMINIMAL_STACK_SIZE,
-							&processing_handles,
-							3,
-							&(task_handles[PROCESSING_HANDLE]));
-
-	xTaskCreate(queue_watcher_task,
-						  "queue watcher",
-							configMINIMAL_STACK_SIZE,
-							&processing_handles,
-							4,
-							&(task_handles[QUEUE_WATCHER_HANDLE]));
-
-	xTaskCreate(heap_watcher_task,
+	xTaskCreate(memory_watcher_task,
 						  "heap watcher",
 							configMINIMAL_STACK_SIZE,
-							NULL,
-							4,
-							&(task_handles[HEAP_WATCHER_HANDLE]));
+							&processing_handles,
+							5,
+							&(task_handles[MEMORY_WATCHER_HANDLE]));
+
+	vTaskCoreAffinitySet(task_handles[SERVER_HANDLE], (1 << 0));
+	vTaskCoreAffinitySet(task_handles[CLIENT_HANDLE], (1 << 0));
+	vTaskCoreAffinitySet(task_handles[PROCESSING_HANDLE], (1 << 1));
+	vTaskCoreAffinitySet(task_handles[QUEUE_WATCHER_HANDLE], (1 << 1));
+	vTaskCoreAffinitySet(task_handles[CONNECTION_HANDLE], tskNO_AFFINITY);
+	vTaskCoreAffinitySet(task_handles[MEMORY_WATCHER_HANDLE], tskNO_AFFINITY);
 
 	vTaskStartScheduler();
 

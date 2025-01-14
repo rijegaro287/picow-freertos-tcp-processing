@@ -13,10 +13,13 @@ void processing_task(void *pvParameters) {
       if(xSemaphoreTake(handles->output_semaphore, portMAX_DELAY)) {
         uint16_t frame_buffer[buffer_size / 2];
         for(uint32_t i = 0; i < buffer_size; i++) {
-          frame_buffer[i] = (recv_buffer[2*i] << 8) | recv_buffer[(2*i) + 1];;
+          frame_buffer[i] = (recv_buffer[2*i] << 8) | recv_buffer[(2*i) + 1];
         }
 
         /* Process data... */
+        for(uint32_t i = 0; i < (buffer_size / 2); i++) {
+          frame_buffer[i] = frame_buffer[i] * 2;
+        }
 
         uint8_t result_buffer[buffer_size];
         for (uint32_t i = 0; i < (buffer_size / 2); i++) {
@@ -25,10 +28,11 @@ void processing_task(void *pvParameters) {
         }
 
         xQueueSend(handles->output_queue, result_buffer, 0);
+        // xQueueSend(handles->output_queue, recv_buffer, 0);
       }
     }
     else {
-      vTaskDelay(pdMS_TO_TICKS(10));
+      vTaskDelay(pdMS_TO_TICKS(1));
     }
   }
 }

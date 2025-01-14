@@ -52,7 +52,7 @@ static void tcp_server_listen(tcp_server_config_t *config) {
 			close(conn_sock);
 		}
 		else {
-			vTaskDelay(pdMS_TO_TICKS(10));
+			vTaskDelay(pdMS_TO_TICKS(1));
 		}
 	}
 }
