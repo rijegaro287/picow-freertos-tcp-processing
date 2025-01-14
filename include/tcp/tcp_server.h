@@ -9,11 +9,12 @@
 
 #include "FreeRTOS.h"
 #include "queue.h"
-
+#include "semphr.h"
 
 typedef struct _tcp_server_config {
   const uint16_t port;
   xQueueHandle input_queue;
+  xSemaphoreHandle input_semaphore;
 } tcp_server_config_t;
 
 

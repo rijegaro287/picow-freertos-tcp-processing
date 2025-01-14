@@ -1,6 +1,5 @@
 #include "tcp_client.h"
 
-
 static int32_t tcp_client_create_socket(tcp_client_config_t *config) {
   struct sockaddr_in dest_addr = {
     .sin_len = sizeof(struct sockaddr_in),
@@ -44,6 +43,8 @@ void tcp_client_task(void *pvParameters) {
         close(client_socket);
       }
     }
-    vTaskDelay(pdMS_TO_TICKS(10));
+    else {
+      vTaskDelay(pdMS_TO_TICKS(100));
+    }
   }
 }

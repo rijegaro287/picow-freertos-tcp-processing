@@ -7,11 +7,10 @@
 #include "tcp_client.h"
 #include "processing.h"
 
-#define NUMBER_OF_HANDLES 5
+#define NUMBER_OF_HANDLES 6
 
-#define QUEUE_LENGTH 10
-#define BUFFER_SIZE 512
-
+#define QUEUE_LENGTH 5
+#define BUFFER_SIZE 256
 
 typedef struct _wifi_credentials {
 	const char *ssid;
@@ -23,7 +22,8 @@ typedef enum _handle_index {
 	SERVER_HANDLE,
 	CLIENT_HANDLE,
 	PROCESSING_HANDLE,
-	NOISE_HANDLE
+	QUEUE_WATCHER_HANDLE,
+	HEAP_WATCHER_HANDLE
 } handle_index_t;
 
 
@@ -59,7 +59,7 @@ static void wifi_connect_task(void *pvParameters) {
 	}
 
 	for(uint32_t i = 0; i < NUMBER_OF_HANDLES; i++) {
-		if(task_handles[i] != NULL) {
+		if((i != CONNECTION_HANDLE) && (task_handles[i] != NULL)) {
 			xTaskNotifyGive(task_handles[i]);
 		}
 	}
@@ -67,17 +67,37 @@ static void wifi_connect_task(void *pvParameters) {
 	vTaskDelete(NULL);
 }
 
-void noise_task(void *pvParameters) {
+void queue_watcher_task(void *pvParameters) {
+	queue_handles_t *handles = (queue_handles_t *)pvParameters;
 	while(true) {
-		printf("Noise\n");
-		vTaskDelay(pdMS_TO_TICKS(2000));
+		if(uxQueueSpacesAvailable(handles->input_queue) > 0) {
+			xSemaphoreGive(handles->input_semaphore);
+		}
+		
+		if(uxQueueSpacesAvailable(handles->output_queue) > 0) {
+			xSemaphoreGive(handles->output_semaphore);
+		}
+
+		vTaskDelay(pdMS_TO_TICKS(20));
+	}
+}
+
+void heap_watcher_task(void *pvParameters) {
+	while(true) {
+		printf("==============================================\n");
+		printf("Free Heap: %d\n", xPortGetFreeHeapSize());
+		printf("Smallest Free Heap: %d\n", xPortGetMinimumEverFreeHeapSize());
+		printf("==============================================\n");
+		vTaskDelay(pdMS_TO_TICKS(500));
 	}
 }
 
 int main() {
 	queue_handles_t processing_handles = {
 		.input_queue = xQueueCreate(QUEUE_LENGTH, BUFFER_SIZE),
-		.output_queue = xQueueCreate(QUEUE_LENGTH, BUFFER_SIZE)
+		.output_queue = xQueueCreate(QUEUE_LENGTH, BUFFER_SIZE),
+		.input_semaphore = xSemaphoreCreateBinary(),
+		.output_semaphore = xSemaphoreCreateBinary()
 	};
 
 	wifi_credentials_t wifi_credentials = {
@@ -88,17 +108,15 @@ int main() {
 	tcp_server_config_t tcp_server_config = {
 		.port = 4242,
 		.input_queue = processing_handles.input_queue,
+		.input_semaphore = processing_handles.input_semaphore
 	};
 
 	tcp_client_config_t tcp_client_config = {
 		.server_ip = "192.168.100.66",
 		.port = 4242,
-		.output_queue = processing_handles.output_queue
+		.output_queue = processing_handles.output_queue,
+		.output_semaphore = processing_handles.output_semaphore
 	};
-
-	for(uint32_t i = 0; i < 5; i++) {
-		task_handles[i] = NULL;
-	}
 
 	stdio_init_all();
 
@@ -106,36 +124,43 @@ int main() {
 						  "connection to wifi",
 							configMINIMAL_STACK_SIZE,
 							&wifi_credentials,
-							10,
+							5,
 							&(task_handles[CONNECTION_HANDLE]));
 
 	xTaskCreate(tcp_server_task, 
 						  "tcp server",
 							configMINIMAL_STACK_SIZE,
 							&tcp_server_config,
-							5,
+							2,
 							&(task_handles[SERVER_HANDLE]));
 
 	xTaskCreate(tcp_client_task,
 						  "tcp client",
 							configMINIMAL_STACK_SIZE,
 							&tcp_client_config,
-							5,
+							3,
 							&(task_handles[CLIENT_HANDLE]));
 
 	xTaskCreate(processing_task,
 						  "processing",
 							configMINIMAL_STACK_SIZE,
 							&processing_handles,
-							5,
+							3,
 							&(task_handles[PROCESSING_HANDLE]));
 
-	xTaskCreate(noise_task,
-						  "noise",
+	xTaskCreate(queue_watcher_task,
+						  "queue watcher",
+							configMINIMAL_STACK_SIZE,
+							&processing_handles,
+							4,
+							&(task_handles[QUEUE_WATCHER_HANDLE]));
+
+	xTaskCreate(heap_watcher_task,
+						  "heap watcher",
 							configMINIMAL_STACK_SIZE,
 							NULL,
-							1,
-							&(task_handles[NOISE_HANDLE]));
+							4,
+							&(task_handles[HEAP_WATCHER_HANDLE]));
 
 	vTaskStartScheduler();
 

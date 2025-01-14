@@ -4,13 +4,15 @@
 
 #include "FreeRTOS.h"
 #include "queue.h"
+#include "semphr.h"
 
 #include "tcp_server.h"
-
 
 typedef struct _queue_handles_t {
   xQueueHandle input_queue;
   xQueueHandle output_queue;
+  xSemaphoreHandle input_semaphore;
+  xSemaphoreHandle output_semaphore;
 } queue_handles_t;
 
 extern void processing_task(void *pvParameters);

@@ -1,6 +1,5 @@
 #include "tcp_server.h"
 
-
 static void tcp_server_listen(tcp_server_config_t *config) {
 	int32_t server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 	struct sockaddr_in server_addr = {
@@ -32,7 +31,6 @@ static void tcp_server_listen(tcp_server_config_t *config) {
 	printf("====================================================\n");
 
 	while (true) {
-		printf("-- Waiting for connection\n");
     struct sockaddr_storage remote_addr;
 		socklen_t len = sizeof(remote_addr);
 
@@ -42,17 +40,19 @@ static void tcp_server_listen(tcp_server_config_t *config) {
 			uint8_t recv_buffer[buffer_size];
 
 			if(recv(conn_sock, recv_buffer, buffer_size, 0) > 0) {
-				xQueueSend(config->input_queue, recv_buffer, 0);
-        if (uxQueueSpacesAvailable(config->input_queue) == 0) {
-          printf("Processing queue is full\n");
+				if(xSemaphoreTake(config->input_semaphore, portMAX_DELAY)) {
+					xQueueSend(config->input_queue, recv_buffer, 0);
           send(conn_sock, "1", 1, 0);
-        }
-        else {
+				}
+				else {
           send(conn_sock, "0", 1, 0);
-        }
+				}
 			}
 
 			close(conn_sock);
+		}
+		else {
+			vTaskDelay(pdMS_TO_TICKS(10));
 		}
 	}
 }
