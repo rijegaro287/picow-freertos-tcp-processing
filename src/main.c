@@ -69,6 +69,8 @@ static void wifi_connect_task(void *pvParameters) {
 }
 
 static void queue_watcher_task(void *pvParameters) {
+	ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+
 	queue_handles_t *handles = (queue_handles_t *)pvParameters;
 	while(true) {
 		if(uxQueueSpacesAvailable(handles->input_queue) > 0) {

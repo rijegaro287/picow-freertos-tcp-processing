@@ -28,7 +28,6 @@ void processing_task(void *pvParameters) {
         }
 
         xQueueSend(handles->output_queue, result_buffer, 0);
-        // xQueueSend(handles->output_queue, recv_buffer, 0);
       }
     }
     else {
