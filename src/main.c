@@ -115,8 +115,8 @@ int main() {
 	};
 
 	wifi_credentials_t wifi_credentials = {
-		.ssid = "Familia Gatgens",
-		.password = "adita123"
+		.ssid = "ssid",
+		.password = "password"
 	};
 
 	tcp_server_config_t tcp_server_config = {
